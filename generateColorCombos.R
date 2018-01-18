@@ -42,9 +42,7 @@ names(colorNamedVector) <- colorFrame$colorCode
 
 # What species are you making sheets for? 
 
-species <- c('AMGO', 'AMRO', 'CACH', 'CARW','DEJU','EUST',
-            'GRCA','HOFI','HOSP','HOWR','NOCA','NOMO',
-            'SOSP','TUTI','WBNU','WTSP')
+species <- c('HOSP')
 
 #----------------------------------------------------------------------------*
 # ----  Generate markdown files ----
