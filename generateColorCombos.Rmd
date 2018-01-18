@@ -8,7 +8,8 @@ always_allow_html: yes
 
 nzpBanding <- read.csv('nzpBandingBackup_2018-01-18.csv')
 
-nnBanding <- read.csv('nnCaptureTableBackup_2018-01-18.csv')
+nnBanding <- read.csv('nnCaptureTableBackup_2018-01-18.csv') %>%
+  select(spp = sppCapture, colorCombo = colorComboCapture)
 
 # Which colors do we have?
 
@@ -21,13 +22,6 @@ nColors <- 3
 # At which position(s) should the aluminum be?
 
 xPosition <- 2
-
-# What species are you making sheets for? 
-
-species <- c('AMGO', 'AMRO', 'CACH', 'CARW','DEJU','EUST',
-            'GRCA','HOFI','HOSP','HOWR','NOCA','NOMO',
-            'SOSP','TUTI','WBNU','WTSP')
-
 
 ```
 
@@ -59,20 +53,26 @@ smartRequire(c('tidyverse', 'lubridate','stringr',
 # Process NZP banding file:
 
 nzpBanding <- nzpBanding %>%
-  filter(!is.na(spp)) %>%
-  select(spp, colorComboL, colorComboR) %>%
-  distinct
-
+  filter(spp == species[i]) %>%
+  transmute(
+    colorCombo = paste(colorComboL, colorComboR, sep = ',')
+  )
+  
 # Process NN banding file
 
 nnBanding <- nnBanding %>%
-  select(siteIDCapture, sppCapture:colorComboCapture) %>%
-  mutate(regionSub = siteIDCapture %>%
+   mutate(regionSub = siteIDCapture %>%
            str_sub(start = -3, end = -2)) %>%
-  filter(regionSub %in% c('DC', 'MD', 'VA')) %>%
-  filter(!is.na(sppCapture)) %>%
-  select(spp = sppCapture, colorCombo = colorComboCapture) %>%
+  filter(
+    regionSub %in% c('DC', 'MD', 'VA'),
+    sppCapture == species[i]
+    ) %>%
+  select(colorCombo = colorComboCapture) %>%
   distinct
+
+# Merge files
+
+captureColors <- bind_rows(nzpBanding, nnBanding)
 
 # Color conversion frame:
 
@@ -91,12 +91,10 @@ names(colorNamedVector) <- colorFrame$colorCode
 
 ```{r functions, echo=FALSE,results="hide", include=FALSE}
 
-getSppColor <- function(capturesHub){
-  if(nrow(capturesHub) > 0){
+getSppColor <- function(captureColors){
+  if(nrow(captureColors) > 0){
     return(
-      capturesHub %>%
-        select(spp, colorCombo) %>%
-        distinct
+      captureColors
     )  
   } else {
     return(NULL)
@@ -146,74 +144,10 @@ getColorCombos <- function(colorVector, nBands,
   )
 }
 
-# Function to get used color combos for a given Nestwatch hub and species:
-
-getUsedNestwatchCombos <- function(capturesHub, species){
-  sppColorFrame <- getSppColor(capturesHub)
-  if(species %in% c('BCCH', 'CACH', 'UNCH')){
-    species <- c('BCCH', 'CACH', 'UNCH')
-  }
-  if(is.null(sppColorFrame)){
-    return(NULL)
-  } else {
-    if(nrow(sppColorFrame > 0)){
-      colorFrame <- sppColorFrame %>%
-        filter(spp == species)
-      if(nrow(colorFrame) > 0){
-        return(
-          colorFrame$colorCombo %>%
-            unique
-        )
-      } else {
-        return(NULL)
-      }
-    } else {
-      return(NULL)
-    }
-  }
-}
-
-# Function to get used color combos for nzpBanding:
-
-getUsedNZPCombos <- function(nzpBanding, SPP){
-  sppColorFrame <- nzpBanding %>%
-    transmute(
-      spp = spp,
-      colorCombo = paste(colorComboL, colorComboR, sep = ',')
-    ) %>%
-    filter(spp == SPP)
-  if(nrow(sppColorFrame) > 0){
-    return(
-      sppColorFrame$colorCombo %>%
-        unique
-    )
-  } else {
-    return(NULL)
-  }
-}
-
-# Function to get used color combos across nzpBanding and Nestwatch:
-
-getUsedCombos <- function(nzpBanding, nnBanding, species){
-  # Used combos, NZP:
-  usedCombosNZP <- getUsedNZPCombos(nzpBanding, species)
-  # Nestwatch species to watch out for
-  nnSppVector <- c('AMRO','CACH','CARW','GRCA',
-                          'HOWR','NOCA','NOMO','SOSP')
-  if(!species %in% nnSppVector){
-    usedCombos <- usedCombosNZP
-  } else {
-    usedCombos <- c(
-      usedCombosNZP,
-      getUsedNestwatchCombos(nnBanding, species)
-    )
-  }
-  return(usedCombos)
-}
-
 # Function to make data frame of unused color combos:
 
-getUnusedColors <- function(nzpBanding, nnBanding, species, nColors,
+getUnusedColors <- function(captureColors,
+                            nColors,
                             colorVector, 
                             xPositions = 1:4, aluminum = TRUE,
                             onlyWithColor = FALSE, specifiedColor = 'P',
@@ -227,7 +161,7 @@ getUnusedColors <- function(nzpBanding, nnBanding, species, nColors,
     replaceColorCode(potentialColors$colorCombo)
   )
   # Get vector of used colors for a Nestwatch hub:
-  usedCombos <- getUsedCombos(nzpBanding, nnBanding, species)
+  usedCombos <- captureColors$colorCombo
   # Subset data frame to unused combos:
   if(!is.null(usedCombos)){
     comboSubset <- potentialColorsFull %>%
@@ -290,18 +224,33 @@ conditionsFrame <- data_frame(
 
 # Conditions:
 
-SPP <- conditionsFrame$species[i]
-al <- conditionsFrame$al[i]
-nBands  <- conditionsFrame$nBands[i]
-colorToRemove  <- conditionsFrame$removeColor[i]
+conditionsFrame <- data_frame(
+  # What species are you making sheets for? 
+  species = species[i]
+) %>%
+  mutate(
+    # Vector of aluminum band true and falses:
+    al = ifelse(species %in% c('EUST', 'HOSP'),  FALSE, TRUE),
+    nBands = ifelse(species %in% c('EUST', 'HOSP'),  3, 4),
+    removeColor = ifelse(
+      species %in% c('AMGO', 'CACH', 'DEJU','HOWR'), 'M', 'N'
+    )
+  )
+
+
+SPP <- conditionsFrame$species
+al <- conditionsFrame$al
+nBands  <- conditionsFrame$nBands
+colorToRemove  <- conditionsFrame$removeColor
 
 # Color table:
   
-colorTable <- getUnusedColors(nzpBanding, nnBanding, SPP, nColors = nBands,
+colorTable <- getUnusedColors(captureColors,
+                            nColors = nBands,
                             colorVector, 
-                            xPositions = 2, aluminum = al,
+                            xPositions = xPosition, aluminum = al,
                             onlyWithColor = FALSE,
-                            removeColor = colorToRemove) %>%
+                            removeColor = 'N') %>%
   rename(combo = colorCombo) %>%
   mutate(date = '',
          bandNumber = '           ',
