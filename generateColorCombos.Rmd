@@ -6,10 +6,11 @@ always_allow_html: yes
 ```{r inputs, echo=FALSE,results="hide", include=FALSE}
 # Read in the files:
 
+species <- 'NOCA'
+
 nzpBanding <- read.csv('nzpBandingBackup_2018-01-18.csv')
 
-nnBanding <- read.csv('nnCaptureTableBackup_2018-01-18.csv') %>%
-  select(spp = sppCapture, colorCombo = colorComboCapture)
+nnBanding <- read.csv('nnCaptureTableBackup_2018-01-18.csv')
 
 # Which colors do we have?
 
@@ -42,7 +43,7 @@ smartRequire <- function(packages){
 }
 
 smartRequire(c('tidyverse', 'lubridate','stringr',
-               'knitr', 'rmarkdown', 'DT'))
+               'knitr', 'rmarkdown', 'DT', 'kableExtra'))
 
 ```
 
@@ -53,7 +54,7 @@ smartRequire(c('tidyverse', 'lubridate','stringr',
 # Process NZP banding file:
 
 nzpBanding <- nzpBanding %>%
-  filter(spp == species[i]) %>%
+  filter(spp == species) %>%
   transmute(
     colorCombo = paste(colorComboL, colorComboR, sep = ',')
   )
@@ -65,7 +66,7 @@ nnBanding <- nnBanding %>%
            str_sub(start = -3, end = -2)) %>%
   filter(
     regionSub %in% c('DC', 'MD', 'VA'),
-    sppCapture == species[i]
+    sppCapture == species
     ) %>%
   select(colorCombo = colorComboCapture) %>%
   distinct
@@ -202,31 +203,13 @@ dataTableFun <- function(inTable){
 
 ```
 
-```{r conditionsFrame, echo=FALSE,results="hide", include=FALSE}
-
-# Conditions frame:
-
-conditionsFrame <- data_frame(
-  # What species are you making sheets for? 
-  species = species
-) %>%
-  mutate(
-    # Vector of aluminum band true and falses:
-    al = ifelse(species %in% c('EUST', 'HOSP'),  FALSE, TRUE),
-    nBands = ifelse(species %in% c('EUST', 'HOSP'),  3, 4),
-    removeColor = ifelse(
-      species %in% c('AMGO', 'CACH', 'DEJU','HOWR'), 'M', 'N'
-    )
-  )
-```
-
-```{r tableGeneration, echo=FALSE,results="hide", include=FALSE}
+```{r tableGeneration, echo=FALSE, results="hide", include=FALSE}
 
 # Conditions:
 
 conditionsFrame <- data_frame(
   # What species are you making sheets for? 
-  species = species[i]
+  species = species
 ) %>%
   mutate(
     # Vector of aluminum band true and falses:
@@ -256,16 +239,27 @@ colorTable <- getUnusedColors(captureColors,
          bandNumber = '           ',
          sex = '') %>%
   data.frame %>%
-  slice(1:22)
+  slice(1:30)
 ```
+
+`r knit(text = species)`
 
 ```{r printTable, echo=FALSE, message=FALSE, results= 'asis'}
-out <- NULL
-j <- 1
-knit_expandedHeader <- paste0("`r \n\nSPP`\n")
-knit_expanded <- paste0("\n```{r results='asis', echo=FALSE}\n\ndataTableFun(colorTable)\n\n```")
-out <- c(out, knit_expandedHeader,knit_expanded)
+# ```{r printTable, echo=FALSE, message=FALSE, results= 'asis'}
+# out <- NULL
+# j <- 1
+# knit_expandedHeader <- paste0("`r \n\nSPP`\n")
+# knit_expanded <- paste0("\n```{r results='asis', echo=FALSE}\n\ndataTableFun(colorTable)\n\n```")
+# out <- c(out, knit_expandedHeader,knit_expanded)
+# `r paste(knit(text = out), collapse = '\n')`
+kable(colorTable, format = 'latex') %>%
+  kable_styling(full_width = F,
+                latex_options = c('striped', 'scale_down'),
+                font_size = 12) %>%
+  column_spec(1, width = "3em") %>%
+  column_spec(2, width = "7em") %>%
+  column_spec(3, width = "7em")
+
 ```
 
-`r paste(knit(text = out), collapse = '\n')`
 
