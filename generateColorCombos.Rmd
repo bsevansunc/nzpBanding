@@ -4,36 +4,15 @@ always_allow_html: yes
 ---
 
 ```{r inputs, echo=FALSE,results="hide", include=FALSE}
-# Set hub field:
+# Read in the files:
 
-hubField <- 'region'
+nzpBanding <- read.csv('nzpBandingBackup_2018-01-18.csv')
 
-# Get NZP banding file:
+nnBanding <- read.csv('nnCaptureTableBackup_2018-01-18.csv')
 
-nzpBanding <- read_csv('nzpBanding_2017-08-25.csv') %>%
-  filter(!is.na(spp))
-
-# Get NN banding file
-
-nnBanding <- read_csv('captureTable_2017-08-15.csv') %>%
-  filter(!is.na(sppCapture))
-
-# Get vector of colors:
+# Which colors do we have?
 
 colorVector <- c('K', 'B', 'G','M', 'O','P', 'R','W', 'Y')
-
-# Color conversion frame:
-
-colorFrame <- data.frame(
-  colorCode = c('-','X', colorVector),
-  color = c('-','alum', 'black', 'blue', 'green', 'purple',
-            'orange','pink', 'red', 'white', 'yellow')
-)
-
-# Color named vector:
-
-colorNamedVector <- colorFrame$color
-names(colorNamedVector) <- colorFrame$colorCode
 
 # Number of bands?
 
@@ -48,6 +27,7 @@ xPosition <- 2
 species <- c('AMGO', 'AMRO', 'CACH', 'CARW','DEJU','EUST',
             'GRCA','HOFI','HOSP','HOWR','NOCA','NOMO',
             'SOSP','TUTI','WBNU','WTSP')
+
 
 ```
 
@@ -68,53 +48,54 @@ smartRequire <- function(packages){
 }
 
 smartRequire(c('tidyverse', 'lubridate','stringr',
-               'knitr', 'rmarkdown', 'mongolite', 'DT'))
+               'knitr', 'rmarkdown', 'DT'))
 
 ```
 
 
+```{r process inputs, echo=FALSE,results="hide", include=FALSE}
+
+
+# Process NZP banding file:
+
+nzpBanding <- nzpBanding %>%
+  filter(!is.na(spp)) %>%
+  select(spp, colorComboL, colorComboR) %>%
+  distinct
+
+# Process NN banding file
+
+nnBanding <- nnBanding %>%
+  select(siteIDCapture, sppCapture:colorComboCapture) %>%
+  mutate(regionSub = siteIDCapture %>%
+           str_sub(start = -3, end = -2)) %>%
+  filter(regionSub %in% c('DC', 'MD', 'VA')) %>%
+  filter(!is.na(sppCapture)) %>%
+  select(spp = sppCapture, colorCombo = colorComboCapture) %>%
+  distinct
+
+# Color conversion frame:
+
+colorFrame <- data.frame(
+  colorCode = c('-','X', colorVector),
+  color = c('-','alum', 'black', 'blue', 'green', 'purple',
+            'orange','pink', 'red', 'white', 'yellow')
+)
+
+# Color named vector:
+
+colorNamedVector <- colorFrame$color
+names(colorNamedVector) <- colorFrame$colorCode
+
+```
+
 ```{r functions, echo=FALSE,results="hide", include=FALSE}
-# Function to query mongo database table by hub:
-
-getSitesMongo <- function(hubField, inHub){
-  hubQueryStatement <- str_c('{',
-                             shQuote(hubField, type = 'cmd'),
-                             ':',
-                             shQuote(inHub, type = 'cmd'),
-                             '}')
-  siteVector <- siteIdMongo$find(
-    query = hubQueryStatement,
-    fields = '{"_row" : 0, "_id" : 0}'
-  ) %>%
-    mongoToTblDf %>%
-    .$siteID %>%
-    unique
-  return(siteVector)
-}
-
-# Query captures for a given hub:
-
-getCapturesHubMongo <- function(hubField, inHub){
-  inSites <- getSites(hubField, inHub)
-  siteQueryStatement <- paste0('{', 
-                               shQuote('siteIDCapture', type = 'cmd'),
-                               ' : {"$in" : [',
-                               paste(shQuote(inSites, type = 'cmd'),
-                                     collapse = ' , '),
-                               '] }}')
-  captureSubset <- captureMongo$find(
-    query = siteQueryStatement,
-    fields = '{"_row" : 0, "_id" : 0}'
-  ) %>%
-    mongoToTblDf
-  return(captureSubset)
-}
 
 getSppColor <- function(capturesHub){
   if(nrow(capturesHub) > 0){
     return(
       capturesHub %>%
-        select(sppCapture, colorComboCapture) %>%
+        select(spp, colorCombo) %>%
         distinct
     )  
   } else {
@@ -177,10 +158,10 @@ getUsedNestwatchCombos <- function(capturesHub, species){
   } else {
     if(nrow(sppColorFrame > 0)){
       colorFrame <- sppColorFrame %>%
-        filter(sppCapture == species)
+        filter(spp == species)
       if(nrow(colorFrame) > 0){
         return(
-          colorFrame$colorComboCapture %>%
+          colorFrame$colorCombo %>%
             unique
         )
       } else {
@@ -197,10 +178,10 @@ getUsedNestwatchCombos <- function(capturesHub, species){
 getUsedNZPCombos <- function(nzpBanding, SPP){
   sppColorFrame <- nzpBanding %>%
     transmute(
-      spp = SPP,
+      spp = spp,
       colorCombo = paste(colorComboL, colorComboR, sep = ',')
     ) %>%
-    filter(spp == species)
+    filter(spp == SPP)
   if(nrow(sppColorFrame) > 0){
     return(
       sppColorFrame$colorCombo %>%

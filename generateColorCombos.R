@@ -17,7 +17,7 @@ smartRequire <- function(packages){
 }
 
 smartRequire(c('tidyverse', 'lubridate','stringr',
-               'knitr', 'rmarkdown', 'mongolite'))
+               'knitr', 'rmarkdown'))
 
 #----------------------------------------------------------------------------*
 # ----  Inputs ----
