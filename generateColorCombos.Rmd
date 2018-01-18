@@ -3,6 +3,54 @@ output: pdf_document
 always_allow_html: yes
 ---
 
+```{r inputs, echo=FALSE,results="hide", include=FALSE}
+# Set hub field:
+
+hubField <- 'region'
+
+# Get NZP banding file:
+
+nzpBanding <- read_csv('nzpBanding_2017-08-25.csv') %>%
+  filter(!is.na(spp))
+
+# Get NN banding file
+
+nnBanding <- read_csv('captureTable_2017-08-15.csv') %>%
+  filter(!is.na(sppCapture))
+
+# Get vector of colors:
+
+colorVector <- c('K', 'B', 'G','M', 'O','P', 'R','W', 'Y')
+
+# Color conversion frame:
+
+colorFrame <- data.frame(
+  colorCode = c('-','X', colorVector),
+  color = c('-','alum', 'black', 'blue', 'green', 'purple',
+            'orange','pink', 'red', 'white', 'yellow')
+)
+
+# Color named vector:
+
+colorNamedVector <- colorFrame$color
+names(colorNamedVector) <- colorFrame$colorCode
+
+# Number of bands?
+
+nColors <- 3
+
+# At which position(s) should the aluminum be?
+
+xPosition <- 2
+
+# What species are you making sheets for? 
+
+species <- c('AMGO', 'AMRO', 'CACH', 'CARW','DEJU','EUST',
+            'GRCA','HOFI','HOSP','HOWR','NOCA','NOMO',
+            'SOSP','TUTI','WBNU','WTSP')
+
+```
+
 ```{r setup, echo=FALSE,results="hide", include=FALSE}
 
 options(stringsAsFactors = FALSE)
@@ -239,60 +287,7 @@ dataTableFun <- function(inTable){
 
 ```
 
-```{r inputs, echo=FALSE,results="hide", include=FALSE}
-# # Where's mongo?
-# 
-# mongoURL <- "mongodb://bsevans:33shazam@ds025232.mlab.com:25232/nndataentry"
-# 
-# # Load necessary mongo connections:
-# 
-# siteIdMongo <- mongo('siteIdTable', url = mongoURL)
-# captureMongo <- mongo('captureTable', url = mongoURL)
-
-# Set hub field:
-
-hubField <- 'region'
-
-# Get NZP banding file:
-
-nzpBanding <- read_csv('nzpBanding_2017-08-25.csv') %>%
-  filter(!is.na(spp))
-
-# Get NN banding file
-
-nnBanding <- read_csv('captureTable_2017-08-15.csv') %>%
-  filter(!is.na(sppCapture))
-
-# Get vector of colors:
-
-colorVector <- c('K', 'B', 'G','M', 'O','P', 'R','W', 'Y')
-
-# Color conversion frame:
-
-colorFrame <- data.frame(
-  colorCode = c('-','X', colorVector),
-  color = c('-','alum', 'black', 'blue', 'green', 'purple',
-            'orange','pink', 'red', 'white', 'yellow')
-)
-
-# Color named vector:
-
-colorNamedVector <- colorFrame$color
-names(colorNamedVector) <- colorFrame$colorCode
-
-# Number of bands?
-
-nColors <- 3
-
-# At which position(s) should the aluminum be?
-
-xPosition <- 2
-
-# What species are you making sheets for? 
-
-species <- c('AMGO', 'AMRO', 'CACH', 'CARW','DEJU','EUST',
-            'GRCA','HOFI','HOSP','HOWR','NOCA','NOMO',
-            'SOSP','TUTI','WBNU','WTSP')
+```{r conditionsFrame, echo=FALSE,results="hide", include=FALSE}
 
 # Conditions frame:
 
